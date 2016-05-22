@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Animals on the Loose</title>
+		<meta charset="utf-8"
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	</head>
+	<link rel="stylesheet" type="text/css" href="style.css">
+	<body>
+		
+	<audio id="audio1" src="bibeFinal.mp3"></audio>
+	<input type="button" value="PLAY"  id = "play" onclick="play()">
+	<input type="button" value="STOP" id= "stop" onclick="stop()">
+	
+
+		<script src="js/three.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/TrackBallControls.js"></script>
+	
+		<script type="x-shader/x-fragment" id="fragmentShaderDepth">
+			#include <packing>
+			uniform sampler2D texture;
+			varying vec2 vUV;
+			void main() {
+				vec4 pixel = texture2D( texture, vUV );
+				if ( pixel.a < 0.5 ) discard;
+				gl_FragData[ 0 ] = packDepthToRGBA( gl_FragCoord.z );
+			}
+		</script>
+
+		<script type="x-shader/x-vertex" id="vertexShaderDepth">
+			varying vec2 vUV;
+			void main() {
+				vUV = 0.75 * uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+
+		<script>
+
+			var audio = document.getElementById('audio1');
+		    var count = 0;
+				  	
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			var container;
+			var camera, scene, renderer, controls, plane, objects = [];
+
+			var raycaster = new THREE.Raycaster();
+			var mouse = new THREE.Vector2(),
+			offset = new THREE.Vector3(),
+			INTERSECTED, SELECTED;
+			// var object;
+			var mesh;
+			var duckA_cube,duckB_cube,duckC_cube,
+				bear_cube,cat_cube,cat2_cube,frog_cube,koala_cube,
+				monkey_cube,mouse_cube,panda_cube,pig_cube,pig2_cube,
+				puppy_cube,bearA_cube,catA_cube;
+			var geometry; 
+			var materialDuck;
+			var pause = false;
+			$animal = [];
+			init();
+			animate();
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				// scene
+				scene = new THREE.Scene();
+				// lights
+				var light, materials;
+				scene.add( new THREE.AmbientLight( 0x666666 ) );
+
+				
+				var light = new THREE.SpotLight( 0xffffff, 1.5 );
+				light.position.set( 0, 500, 2000 );
+
+				light.castShadow = true;
+				light.shadow.mapSize.width = 1024;
+				light.shadow.mapSize.height = 1024;
+				var d = 300;
+				light.shadow.camera.left = - d;
+				light.shadow.camera.right = d;
+				light.shadow.camera.top = d;
+				light.shadow.camera.bottom = - d;
+				light.shadow.camera.far = 1000;
+				scene.add( light );
+				var loader = new THREE.TextureLoader();
+
+				// --------------- CUBES ----------------------
+				
+				var animalsN = ['duckA_cube','duckB_cube','duckC_cube',
+								'bear_cube','cat_cube','cat2_cube','frog_cube','koala_cube',
+								'monkey_cube','mouse_cube','panda_cube','pig_cube','pig2_cube',
+								'puppy_cube','bearA_cube','catA_cube'];
+				for(var i=0 ;i<animalsN.length;i++)
+					$animal.push(eval('(' + animalsN[i]+ ')'));
+
+				
+				var xc = -3000, yc= 400,zc = 500;
+				var xd = -3000;
+				var m = 3;
+				geometry = new THREE.BoxBufferGeometry( 400, 400, 200 );
+				createAnimal('duck',0,0,-350,300+zc)
+				;geometry = new THREE.BoxBufferGeometry( 600, 600, 200 );
+				createAnimal('duck',1,2100,-350,-100+zc);
+				geometry = new THREE.BoxBufferGeometry( 300, 400, 200 );
+				createAnimal('duck',2,-2100,-350,-100+zc);
+
+
+				geometry = new THREE.BoxBufferGeometry( 400, 400, 200 );
+				var fbox = ['bear','cat','cat2','frog','monkey','mouse','panda','pig','pig2','puppy','bear','cat',
+							'cat2','puppy','bear','pig','panda','monkey','mouse','cat','bear','cat','pig2','frog',
+							'mouse','cat','pig','frog','cat2','bear','panda','pig2','puppy','bear','cat','monkey','pig2','puppy','koala'	]
+				for(var k=0;k<3;k++){
+					createAnimal(fbox[m],m,500+xc,0+yc,-1000+zc);
+					createAnimal(fbox[m+1],m+1,0+xc,0+yc,-1000+zc);
+					createAnimal(fbox[m+2],m+2,250+xc,400+yc,-1000+zc);
+					createAnimal(fbox[m+3],m+3,750+xc,400+yc,-1000+zc);
+					createAnimal(fbox[m+4],m+4,1000+xc,0+yc,-1000+zc);
+					createAnimal(fbox[m+5],m+5,500+xc,800+yc,-1000+zc);
+					createAnimal(fbox[m+6],m+6,-500+xc,0+yc,-1000+zc);
+					createAnimal(fbox[m+7],m+7,-1000+xc,0+yc,-1000+zc);
+					createAnimal(fbox[m+8],m+8,-250+xc,400+yc,-1000+zc);
+					createAnimal(fbox[m+9],m+9,-750+xc,400+yc,-1000+zc);
+					createAnimal(fbox[m+10],m+10,0+xc,800+yc,-1000+zc);
+					createAnimal(fbox[m+11],m+11,-500+xc,800+yc,-1000+zc);
+					xc = xc-xd;
+					m += 12;
+				}
+				createBox('stripes',-3000,0,-500);
+				createBox('stripes',3000,0,-500);
+				createBox('stripes',0,0,-500);
+
+			    
+				//---------------------------------------------
+				plane = new THREE.Mesh(
+					new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
+					new THREE.MeshBasicMaterial( { visible: false } )
+				);
+				scene.add( plane );
+
+				scene.fog = new THREE.Fog( 0xcce0ff, 500, 10000 );
+				// camera
+				camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.x = 1000;
+				camera.position.y = 50;
+				camera.position.z = 1500;
+				scene.add( camera );
+				
+				// ground
+				var groundTexture = loader.load( 'images/grasslight-big.jpg' );
+				groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+				groundTexture.repeat.set( 25, 25 );
+				groundTexture.anisotropy = 16;
+				var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, map: groundTexture } );
+				var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 20000, 20000 ), groundMaterial );
+				mesh.position.y = - 250;
+				mesh.rotation.x = - Math.PI / 2;
+				mesh.receiveShadow = true;
+				scene.add( mesh );
+				// renderer
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setClearColor( scene.fog.color );
+				container.appendChild( renderer.domElement );
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFShadowMap;
+				renderer.domElement.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				renderer.domElement.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				renderer.domElement.addEventListener( 'mouseup', onDocumentMouseUp, false );
+
+				// controls
+				controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+				// controls = new THREE.TrackballControls( camera );
+				controls.maxPolarAngle = Math.PI * 0.5;
+				controls.minDistance = 1000;
+				controls.maxDistance = 7500;
+				controls.rotateSpeed = 1.0;
+				controls.zoomSpeed = 1.2;
+				controls.panSpeed = 0.8;
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.3;
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			function onDocumentMouseMove( event ) {
+				event.preventDefault();
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;		
+				raycaster.setFromCamera( mouse, camera );
+				if ( SELECTED ) {
+					var intersects = raycaster.intersectObject( plane );
+					if ( intersects.length > 0 ) {
+						SELECTED.position.copy( intersects[ 0 ].point.sub( offset ) );
+					}
+					return;
+				}
+
+				var intersects = raycaster.intersectObjects( objects );
+				if ( intersects.length > 0 ) {
+					if ( INTERSECTED != intersects[ 0 ].object ) {
+						
+						INTERSECTED = intersects[ 0 ].object;
+						
+						plane.position.copy( INTERSECTED.position );
+						plane.lookAt( camera.position );
+					}
+					container.style.cursor = 'pointer';
+				} else {
+					
+					INTERSECTED = null;
+					container.style.cursor = 'auto';
+				}
+
+				pause = false;
+			}
+
+			function onDocumentMouseDown( event ) {
+				event.preventDefault();
+				raycaster.setFromCamera( mouse, camera );
+				var intersects = raycaster.intersectObjects( objects );
+				if ( intersects.length > 0 ) {
+					controls.enabled = false;
+					SELECTED = intersects[ 0 ].object;
+					var intersects = raycaster.intersectObject( plane );
+					if ( intersects.length > 0 ) {
+						offset.copy( intersects[ 0 ].point ).sub( plane.position );
+					}
+					container.style.cursor = 'move';
+				}
+
+			}
+
+			function onDocumentMouseUp( event ) {
+				event.preventDefault();
+				controls.enabled = true;
+				if ( INTERSECTED ) {
+					plane.position.copy( INTERSECTED.position );
+					SELECTED = null;
+				}
+				container.style.cursor = 'auto';
+			}
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render() {
+				controls.update();
+				camera.lookAt( scene.position );
+				renderer.render( scene, camera );
+
+			}
+			function play(){
+				if(pause) return;
+				audio.play();
+				requestAnimationFrame( play );
+				renderCube();
+			}
+			function renderCube(){
+				controls.update();
+				camera.lookAt( scene.position );
+				renderer.render( scene, camera );
+
+				time =(count*100) * 0.001;
+				
+				for(var i=0; i<3;i++){
+					if(time<=3.5)
+					$animal[i].position.y = Math.sin(time) * 500 + 500;
+				}
+				if(time>4.5)
+					$animal[1].rotation.z = Math.sin(time) * -0.5; 
+				if(time>5.5)
+					$animal[2].rotation.z = Math.sin(time) * 0.5; 
+				if(time>6.5)
+					$animal[0].rotation.x = Math.sin(time) * 0.5; 
+				
+				if(time>13 && time<20){
+					$animal[0].rotation.x = Math.sin(time) * -2; 
+					$animal[1].position.y = Math.sin(time) * 500 + 700; 
+					$animal[2].position.y = Math.sin(time) * 500 + 500; 
+					$animal[1].rotation.y = Math.sin(time) * 2; 
+					$animal[2].rotation.y = Math.sin(time) * -2; 
+				}
+				if(time>=20){
+					$animal[0].rotation.x = Math.sin(time) * -10; 
+					$animal[1].rotation.y = Math.sin(time) * 10; 
+					$animal[2].rotation.y = Math.sin(time) * -10; 
+					$animal[0].position.y = Math.sin(time) * 500 + 600;  
+					$animal[1].position.y = Math.sin(time) * 500 + 600; 
+					$animal[2].position.y = Math.sin(time) * 500 + 500; 
+				}
+				
+
+				for(var j=3;j<$animal.length;j++){	
+					if(time<30)
+						$animal[j].rotation.z =  Math.sin( time ) * 0.5; 
+					else if(time>=30 && time<35)
+						$animal[j].rotation.z =  Math.sin( time*30 ) * 0.5; 
+					else if(time>=35 && time<47.5){
+						$animal[j].rotation.z =  Math.sin( time*100 ) * 0.5; 
+					}
+					else if(time>=47.5){	
+						pause = true;
+						audio.pause();
+						count=0;
+					}
+
+				}
+
+				console.log(time);
+				count++;
+			}
+			function stop(){
+				pause = true;
+				audio.pause();
+			}
+			function createAnimal(objectV,i,x,y,z){
+
+				var loader = new THREE.TextureLoader();
+				var head = new THREE.MeshPhongMaterial( { map: loader.load('images/Animals/'+objectV+'.jpg') } );
+				var body = new THREE.MeshPhongMaterial( { map: loader.load('images/Animals/'+objectV+'Body.jpg') } );
+				var obj = [body, body, body, body, head, body];
+				materialAnimal = new THREE.MeshFaceMaterial(obj);
+
+				$animal[i] = new THREE.Mesh( geometry, materialAnimal );		
+				$animal[i].position.x = x;			
+				$animal[i].position.y = y;			
+				$animal[i].position.z = z;			
+				$animal[i].castShadow = true;
+				$animal[i].receiveShadow = true;
+				objects.push($animal[i]);
+				scene.add( $animal[i]);
+			}
+			function createBox(objectV,x,y,z){
+				var geometryB = new THREE.BoxBufferGeometry( 2700, 400, 400 );
+				var loader = new THREE.TextureLoader();
+				var box = new THREE.MeshPhongMaterial( { map: loader.load('images/'+objectV+'.jpg') } );
+				
+				var obj = [box, box, box, box, box, box];
+				var materialBox = new THREE.MeshFaceMaterial(obj);
+
+				var blackBox = new THREE.Mesh( geometryB, materialBox );		
+				blackBox.position.x = x;			
+				blackBox.position.y = y;			
+				blackBox.position.z = z;			
+				blackBox.castShadow = true;
+				blackBox.receiveShadow = true;
+				objects.push(blackBox);
+				scene.add(blackBox);
+			}
+		</script>
+	</body>
+</html>
