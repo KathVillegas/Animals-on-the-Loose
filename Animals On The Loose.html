@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Animals on the Loose</title>
+		<meta charset="utf-8"
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #000;
+				color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: absolute;
+				padding: 10px;
+				width: 100%;
+				text-align: center;
+			}
+
+			a {
+				text-decoration: underline;
+				cursor: pointer;
+			}
+
+		</style>
+	</head>
+
+	<body>
+		
+
+		<script src="js/three.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/TrackBallControls.js"></script>
+	
+		<script type="x-shader/x-fragment" id="fragmentShaderDepth">
+			#include <packing>
+			uniform sampler2D texture;
+			varying vec2 vUV;
+			void main() {
+				vec4 pixel = texture2D( texture, vUV );
+				if ( pixel.a < 0.5 ) discard;
+				gl_FragData[ 0 ] = packDepthToRGBA( gl_FragCoord.z );
+			}
+		</script>
+
+		<script type="x-shader/x-vertex" id="vertexShaderDepth">
+			varying vec2 vUV;
+			void main() {
+				vUV = 0.75 * uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			var container;
+			var camera, scene, renderer, controls, plane, objects = [];
+
+			var raycaster = new THREE.Raycaster();
+			var mouse = new THREE.Vector2(),
+			offset = new THREE.Vector3(),
+			INTERSECTED, SELECTED;
+			// var object;
+			var mesh;
+			init();
+			animate();
+
+			function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+				// scene
+				scene = new THREE.Scene();
+				// lights
+				var light, materials;
+				scene.add( new THREE.AmbientLight( 0x666666 ) );
+
+				// light = new THREE.DirectionalLight( 0xdfebff, 1.75 );
+				// light.position.set( 50, 200, 100 );
+				// light.position.multiplyScalar( 1.3 );
+				var light = new THREE.SpotLight( 0xffffff, 1.5 );
+				light.position.set( 0, 500, 2000 );
+
+				light.castShadow = true;
+				light.shadow.mapSize.width = 1024;
+				light.shadow.mapSize.height = 1024;
+				var d = 300;
+				light.shadow.camera.left = - d;
+				light.shadow.camera.right = d;
+				light.shadow.camera.top = d;
+				light.shadow.camera.bottom = - d;
+				light.shadow.camera.far = 1000;
+				scene.add( light );
+				var loader = new THREE.TextureLoader();
+
+				// --------------- CUBES ----------------------
+				var geometry = new THREE.BoxBufferGeometry( 400, 400, 400 );
+				//bear cube
+				var bear1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/bear.jpg') } );
+				var bear2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/bearBody.jpg') } );
+				var bear = [bear2, bear2, bear2, bear2, bear1, bear2];
+
+				var materialBear = new THREE.MeshFaceMaterial( bear);
+				mesh = new THREE.Mesh( geometry, materialBear );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;	
+					mesh.position.x = 500;
+					mesh.position.z = -1000;				
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//cat cube
+				var cat1_1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/cat.jpg') } );
+				var cat2_1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/catBody.jpg') } );
+				var cat1 = [cat2_1, cat2_1, cat2_1, cat2_1, cat1_1, cat2_1];
+
+				var materialCat = new THREE.MeshFaceMaterial(cat1);
+				mesh = new THREE.Mesh( geometry, materialCat );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;	
+					// mesh.position.x = -100;
+					mesh.position.z = -1000;				
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//cat2 cube
+				var cat1_2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/cat2.jpg') } );
+				var cat2_2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/cat2Body.jpg') } );
+				var cat2 = [cat2_2, cat2_2, cat2_2, cat2_2, cat1_2, cat2_2];
+
+				var materialCat2 = new THREE.MeshFaceMaterial(cat2);
+				mesh = new THREE.Mesh( geometry, materialCat2 );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = 250;
+					mesh.position.y = 400;
+					mesh.position.z = -1000;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//duck cube
+				var duck1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duck.jpg') } );
+				var duck2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duckBody.jpg') } );
+				var duck = [duck2, duck2, duck2, duck2, duck1, duck2];
+
+				var materialDuck = new THREE.MeshFaceMaterial(duck);
+				mesh = new THREE.Mesh( geometry, materialDuck );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = 750;
+					mesh.position.y = 400;
+					mesh.position.z = -1000;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//frog cube
+				var frog1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/frog.jpg') } );
+				var frog2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/frogBody.jpg') } );
+				var frog = [frog2, frog2, frog2, frog2, frog1, frog2];
+
+				var materialFrog = new THREE.MeshFaceMaterial(frog);
+				mesh = new THREE.Mesh( geometry, materialFrog );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = 1000;
+					mesh.position.z = -1000;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//koala cube
+				var koala1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/koala.jpg') } );
+				var koala2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/koalaBody.jpg') } );
+				var koala = [koala2, koala2, koala2, koala2, koala1, koala2];
+
+				var materialKoala = new THREE.MeshFaceMaterial(koala);
+				mesh = new THREE.Mesh( geometry, materialKoala );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = 500;
+					mesh.position.z = -1000;
+					mesh.position.y = 800;		
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//monkey cube
+				var monkey1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/monkey.jpg') } );
+				var monkey2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/monkeyBody.jpg') } );
+				var monkey = [monkey2, monkey2, monkey2, monkey2, monkey1, monkey2];
+
+				var materialMonkey = new THREE.MeshFaceMaterial(monkey);
+				mesh = new THREE.Mesh( geometry, materialMonkey );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -500;
+					mesh.position.z = -1000;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//mouse cube
+				var mouse1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/mouse.jpg') } );
+				var mouse2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/mouseBody.jpg') } );
+				var mouse = [mouse2, mouse2, mouse2, mouse2, mouse1, mouse2];
+
+				var materialMouse = new THREE.MeshFaceMaterial(mouse);
+				mesh = new THREE.Mesh( geometry, materialMouse );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -1000;
+					mesh.position.z = -1000;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//panda cube
+				var panda1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/panda.jpg') } );
+				var panda2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/pandaBody.jpg') } );
+				var panda = [panda2, panda2, panda2, panda2, panda1, panda2];
+
+				var materialPanda = new THREE.MeshFaceMaterial(panda);
+				mesh = new THREE.Mesh( geometry, materialPanda );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -250;
+					mesh.position.z = -1000;
+					mesh.position.y = 400;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//pig cube
+				var pig1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/pig.jpg') } );
+				var pig2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/pigBody.jpg') } );
+				var pig = [pig2, pig2, pig2, pig2, pig1, pig2];
+
+				var materialPig = new THREE.MeshFaceMaterial(pig);
+				mesh = new THREE.Mesh( geometry, materialPig );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -750;
+					mesh.position.z = -1000;
+					mesh.position.y = 400;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//pig2 cube
+				var pig1_2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/pig2.jpg') } );
+				var pig2_2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/pig2Body.jpg') } );
+				var pig2 = [pig2_2, pig2_2, pig2_2, pig2_2, pig1_2, pig2_2];
+
+				var materialPig2 = new THREE.MeshFaceMaterial(pig2);
+				mesh = new THREE.Mesh( geometry, materialPig2 );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					// mesh.position.x = -750;
+					mesh.position.z = -1000;
+					mesh.position.y = 800;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//puppy cube
+				var puppy1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/puppy.jpg') } );
+				var puppy2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/puppyBody.jpg') } );
+				var puppy = [puppy2, puppy2, puppy2, puppy2, puppy1, puppy2];
+
+				var materialPuppy = new THREE.MeshFaceMaterial(puppy);
+				mesh = new THREE.Mesh( geometry, materialPuppy );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -500;
+					mesh.position.z = -1000;
+					mesh.position.y = 800;
+						
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//duck cube
+				var duck1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duck.jpg') } );
+				var duck2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duckBody.jpg') } );
+				var duck = [duck2, duck2, duck2, duck2, duck1, duck2];
+
+				var materialDuck = new THREE.MeshFaceMaterial(duck);
+				mesh = new THREE.Mesh( geometry, materialDuck );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = 1100;
+					
+					mesh.position.z = -100;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//duck cube
+				var duck1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duck.jpg') } );
+				var duck2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duckBody.jpg') } );
+				var duck = [duck2, duck2, duck2, duck2, duck1, duck2];
+
+				var materialDuck = new THREE.MeshFaceMaterial(duck);
+				mesh = new THREE.Mesh( geometry, materialDuck );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.x = -1100;
+					
+					mesh.position.z = -100;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				//duck cube
+				var duck1 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duck.jpg') } );
+				var duck2 = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('images/Animals/duckBody.jpg') } );
+				var duck = [duck2, duck2, duck2, duck2, duck1, duck2];
+
+				var materialDuck = new THREE.MeshFaceMaterial(duck);
+				mesh = new THREE.Mesh( geometry, materialDuck );
+					// mesh.position.x = Math.random() * 1000 - 500;
+					// mesh.position.z = Math.random() * 800 - 400;		
+					mesh.position.z = 300;			
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+				objects.push(mesh);
+				scene.add( mesh );
+
+				plane = new THREE.Mesh(
+					new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
+					new THREE.MeshBasicMaterial( { visible: false } )
+				);
+				scene.add( plane );
+
+				scene.fog = new THREE.Fog( 0xcce0ff, 500, 10000 );
+				// camera
+				camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.x = 1000;
+				camera.position.y = 50;
+				camera.position.z = 1500;
+				scene.add( camera );
+				
+				// ground
+				var groundTexture = loader.load( 'images/grasslight-big.jpg' );
+				groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+				groundTexture.repeat.set( 25, 25 );
+				groundTexture.anisotropy = 16;
+				var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, map: groundTexture } );
+				var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 20000, 20000 ), groundMaterial );
+				mesh.position.y = - 250;
+				mesh.rotation.x = - Math.PI / 2;
+				mesh.receiveShadow = true;
+				scene.add( mesh );
+				// renderer
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setClearColor( scene.fog.color );
+				container.appendChild( renderer.domElement );
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFShadowMap;
+				renderer.domElement.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				renderer.domElement.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				renderer.domElement.addEventListener( 'mouseup', onDocumentMouseUp, false );
+
+				// controls
+				controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+				// controls = new THREE.TrackballControls( camera );
+				controls.maxPolarAngle = Math.PI * 0.5;
+				controls.minDistance = 1000;
+				controls.maxDistance = 7500;
+				controls.rotateSpeed = 1.0;
+				controls.zoomSpeed = 1.2;
+				controls.panSpeed = 0.8;
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.3;
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			function onDocumentMouseMove( event ) {
+				event.preventDefault();
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;		
+				raycaster.setFromCamera( mouse, camera );
+				if ( SELECTED ) {
+					var intersects = raycaster.intersectObject( plane );
+					if ( intersects.length > 0 ) {
+						SELECTED.position.copy( intersects[ 0 ].point.sub( offset ) );
+					}
+					return;
+				}
+
+				var intersects = raycaster.intersectObjects( objects );
+				if ( intersects.length > 0 ) {
+					if ( INTERSECTED != intersects[ 0 ].object ) {
+						if ( INTERSECTED ) INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+						INTERSECTED = intersects[ 0 ].object;
+						INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+						plane.position.copy( INTERSECTED.position );
+						plane.lookAt( camera.position );
+					}
+					container.style.cursor = 'pointer';
+				} else {
+					if ( INTERSECTED ) INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+					INTERSECTED = null;
+					container.style.cursor = 'auto';
+				}
+			}
+
+			function onDocumentMouseDown( event ) {
+				event.preventDefault();
+				raycaster.setFromCamera( mouse, camera );
+				var intersects = raycaster.intersectObjects( objects );
+				if ( intersects.length > 0 ) {
+					controls.enabled = false;
+					SELECTED = intersects[ 0 ].object;
+					var intersects = raycaster.intersectObject( plane );
+					if ( intersects.length > 0 ) {
+						offset.copy( intersects[ 0 ].point ).sub( plane.position );
+					}
+					container.style.cursor = 'move';
+				}
+			}
+
+			function onDocumentMouseUp( event ) {
+				event.preventDefault();
+				controls.enabled = true;
+				if ( INTERSECTED ) {
+					plane.position.copy( INTERSECTED.position );
+					SELECTED = null;
+				}
+				container.style.cursor = 'auto';
+			}
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render() {
+				controls.update();
+				camera.lookAt( scene.position );
+				renderer.render( scene, camera );
+			}
+
+		</script>
+	</body>
+</html>
